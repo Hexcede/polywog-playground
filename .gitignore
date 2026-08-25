@@ -1,0 +1,14 @@
+.DS_Store
+Thumbs.db
+
+# Generated at host startup, not part of the distributed payload. In a RELEASE build the
+# engine roots its generated output at the process's current directory, so running the
+# demo from this folder drops a .luaurc and a luau-lsp stub tree right here. Untracked and
+# unignored, one `git add -A` would commit the whole stub tree into the demo people
+# download.
+#
+# The stale copy is worse than the clutter: luau-lsp loads EVERY .luaurc up the tree and
+# the nearest wins, so a frozen stub tree beside the scripts silently becomes what
+# `analyze` resolves — passing against an engine surface that no longer exists.
+.luaurc
+types/

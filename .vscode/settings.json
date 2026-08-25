@@ -1,0 +1,8 @@
+{
+    "luau-lsp.fflags.enableNewSolver": true,
+    "luau-lsp.fflags.override": { "LuauSolverV2": "true" },
+    "luau-lsp.types.definitionFiles": {
+        "@polywog/engine": "types/engine.luau",
+        "@polywog/vector4": "defs/vector4.d.luau"
+    }
+}

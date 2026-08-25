@@ -1,0 +1,48 @@
+# Polywog argument definitions for the playground.
+#
+# description = "..."   (optional, top level)
+# Summary line shown at the top of --help.
+#
+# Engine always provides (no definition needed):
+#   --server / -s       ->  engine.isServer (boolean, compile-time constant)
+#                           engine.isClient (boolean, compile-time constant, = !isServer)
+#
+# Engine-reserved flags (do not redefine; consumed before args.toml is read):
+#   --root-dir <path>         default root for all directories
+#   --assets-dir <path>       assets directory
+#   --data-dir <path>         data directory
+#   --screenshots-dir <path>  screenshots directory
+#   --types-dir <path>        generated type-file output directory
+#   --watch                   watch scripts and hot-reload them on change
+#
+# [constants]
+# Compile-time constants exposed as engine.<name> in Luau.
+# The compiler folds these into bytecode so dead branches are eliminated.
+# Supported types: bool, number, string.
+#
+# Example:
+# [constants.debugMode]
+# type = "bool"
+# flag = "debug"
+# short = "d"
+# help = "Enable debug overlay"
+#
+# [args]
+# Runtime-only args, read as plain fields on the args module. These are NOT
+# baked into bytecode.
+#
+#   local args = require("@polywog/args")
+#   print(args.difficulty)
+#
+# Two things to know:
+#   * An arg that is not passed and has no default reads as the zero value for
+#     its type -- false, 0 or "" -- never nil. Test against those, not nil.
+#   * Names are normalized for Luau: anything that is not a letter, digit or
+#     underscore becomes "_", so [args.max-fps] is read as args.max_fps.
+#
+# Example:
+# [args.difficulty]
+# type = "string"
+# flag = "difficulty"
+# help = "Game difficulty (easy/normal/hard)"
+# default = "normal"
