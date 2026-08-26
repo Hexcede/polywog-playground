@@ -145,7 +145,10 @@ local facility = Facility(scope, sceneNode)
 --- Resolved once, outside the computed below. `binder.use` returns the same binding
 --- every time, but it is not free to re-ask: each call registers another release on
 --- `scope` and bumps the binding's user count, so calling it inside a reactive body
---- leaks a registration per re-run — silently, and at whatever rate that body runs.
+--- leaks a registration per re-run, at whatever rate that body runs. `use` counts
+--- those and raises once one scope is holding enough of them, so the leak announces
+--- itself now rather than growing quietly — but it announces itself at the call
+--- site, not here, which is the reason to resolve outside in the first place.
 local circuits: { Circuit.Circuit } = {}
 for _, entry in facility.circuits do
 	table.insert(circuits, binder.use(scope, entry.node, Circuit))
