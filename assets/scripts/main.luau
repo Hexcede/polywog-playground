@@ -125,13 +125,14 @@ reactive.set(frame.clearColor, vector.create(0.04, 0.045, 0.06, 1))
 --- and the renderer is rebuilt if the `Target` ever changes, which a hand-built one
 --- here could not be.
 ---
---- ON `uiNode`, NOT on `windowNode`, and getting this wrong fails silently in both
---- directions. `binder.observeAncestor` searches STRICTLY ABOVE its own node — a
---- provider would otherwise always find itself — and `app.Window` binds `Target` and
---- `Frame` on `windowNode` ITSELF. So a `Fonts` on `windowNode` sees no `Target` at
---- all: `drawText` returns early every frame and every label simply stops appearing,
---- with no error. It would not even be counted, because with no `Frame` above it
---- either there is nowhere to report to, so `frame.orphans` stays zero.
+--- ON `uiNode`, NOT on `windowNode`, and only one of the two ways of getting this
+--- wrong is still silent. `binder.observeAncestor` searches STRICTLY ABOVE its own
+--- node — a provider would otherwise always find itself — and `app.Window` binds
+--- `Target` and `Frame` on `windowNode` ITSELF. So a `Fonts` on `windowNode` sees no
+--- `Target` at all: `drawText` returns early every frame and every label simply stops
+--- appearing, with no error. That is the silent half. With no `Frame` above it either
+--- there is nowhere to report to, so it reports to `@polywog/app` instead, and a
+--- second's worth of frames later the window raises and says so.
 ---
 --- One node down is what satisfies both ends at once: `uiNode` is a child of
 --- `windowNode`, so the search upward reaches `Target` and `Frame`, and it is an
