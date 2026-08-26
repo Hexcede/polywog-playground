@@ -397,11 +397,11 @@ frame.onWrite(scope, function(dt: number, time: number)
 	animation.advance()
 end, 10)
 
---- NO `window.handle:onUpdate(...)`. `Window.handle` is public and `onUpdate`
---- REPLACES the callback rather than adding one, so a host that registers there
---- silently unhooks `app.Window`'s own driver: no `step`, no `present`, nothing
---- rendered, exit code 0 and a blank window. Per-frame work belongs on
---- `frame.onSync`/`onWrite`/`onRender`, which is what the stage above is.
+--- NO `window.handle:onUpdate(...)`. `Window.handle` is public, but a window has
+--- exactly one update callback and `app.Window` has already taken it for its own
+--- driver, so registering there raises and says so. Per-frame work belongs on
+--- `frame.onSync`/`onWrite`/`onRender`, which is what the stage above is, and
+--- which composes — the window's callback is one slot, not a signal.
 window.handle:runAsync()
 
 scope.destroy()
