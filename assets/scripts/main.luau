@@ -118,7 +118,7 @@ assert(target ~= nil and frame ~= nil, "app.Window binds Target and Frame on its
 
 --- The scene's clear colour, owned by `Frame` because only the FIRST render stage
 --- in band order clears and `Frame` is what knows which one that is.
-reactive.set(frame.clear, vector.create(0.04, 0.045, 0.06, 1))
+reactive.set(frame.clearColor, vector.create(0.04, 0.045, 0.06, 1))
 
 --- Text. `Fonts` owns the font system (all font memory) and a `Target`-derived text
 --- renderer (the GPU glyph atlas), so both are created once rather than per frame —
