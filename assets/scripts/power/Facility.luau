@@ -11,11 +11,11 @@
 ---     |-- mainBreaker        Circuit    <-- both lamps, AND subBreaker's whole load
 ---     |-- subBreaker         Circuit    <-- both fans; fed from mainBreaker
 ---     |-- roomA
----     |   |-- lamp           Device + Transform
----     |   `-- fan            Device + Transform
+---     |   |-- lamp           Device + Transform3D
+---     |   `-- fan            Device + Transform3D
 ---     `-- roomB
----         |-- lamp           Device + Transform
----         `-- fan            Device + Transform
+---         |-- lamp           Device + Transform3D
+---         `-- fan            Device + Transform3D
 ---
 --- Two independent graphs over one set of nodes is the thing to notice. If ownership
 --- were the only graph available, "powered by" would have to be parenting, and a fan
@@ -144,11 +144,10 @@ local function Facility(scope: reactive.Scope, parent: binder.Node): Facility
 			reactive.set(device.watts, spec.watts)
 			reactive.set(device.tint, spec.tint)
 
-			--- `world3d.Transform`, the engine's own. The demo used to ship a
-			--- 33-line copy whose `rotation` was euler radians; this one's is a
-			--- quaternion, and the difference is invisible here because nothing in
-			--- the facility ever writes anything but `position`.
-			local transform = binder.use(scope, deviceNode, world3d.Transform)
+			--- `world3d.Transform3D`, the engine's own. It also carries a quaternion
+			--- `rotation` and a `scale`, but nothing in the facility ever writes
+			--- anything but `position`.
+			local transform = binder.use(scope, deviceNode, world3d.Transform3D)
 			reactive.set(transform.position, spec.position)
 
 			--- The crossing edge. `deviceNode` is under `roomNode`; the breaker
