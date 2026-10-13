@@ -86,20 +86,22 @@ local NEAR_CAPACITY = 0.8
 --- `CARD_GAP` is LOAD-BEARING, not styling. `PANEL_GAP` is not.
 ---
 --- The render walk splits its run list at every text run, since a quad emitted afterwards
---- might overlap glyphs already drawn. It merges instead when the later quad is strictly
---- disjoint from the text, and "strictly" is exact. At a FRACTIONAL edge a quad paints
---- past the integer floor of its rect (one ending at x = 32.4 still writes column 32, at
---- partial alpha), so a touching edge really can bleed into a glyph. At an integer edge it
---- cannot, but `layout.resolveUDim` rounds nothing and a label's height is
---- `fontSize * 1.2`, so edges here are fractional essentially always.
+--- might overlap glyphs already drawn. It merges instead when the later quad can paint no
+--- pixel the text can, and it judges that on whole pixels: a rect counts every pixel row
+--- and column its edges reach into, including one it only partly covers. Two rects that
+--- touch at a whole-pixel edge share no pixel, but at a fractional edge they share one.
+--- Edges here are fractional almost always: `layout` rounds nothing, and a label is
+--- `fontSize * 1.2` tall, which is 15.6 at this panel's 13.
 ---
 --- `CARD_GAP` separates a card's heading from the load bar beneath it, and nothing else
---- provides that gap: at zero the panel goes from 2 render runs to 4. `PANEL_GAP` is free
---- to change only incidentally. A card is a fixed 64px tall while its content sums to
---- 63.6, and that 0.4px of slack is what protects the boundary it appears to guard, from
---- a card's reset label to the next card's background. Give a card a height equal to its
---- content and `PANEL_GAP` becomes load-bearing too. `test.luau`'s Phase 4 asserts the
---- run count, so either regression fails there rather than going unnoticed.
+--- provides that gap: at zero the bar starts inside the heading's last pixel row, and the
+--- panel goes from 2 render runs to 6. `PANEL_GAP` is free to change only incidentally.
+--- A card is a fixed 64px tall while its content sums to 63.6, and that 0.4px of slack
+--- is what protects the boundary from a card's reset label to the next card's background:
+--- it puts the next card's top on the whole pixel below the label's last row. Give a card
+--- a height equal to its content and `PANEL_GAP` becomes load-bearing too. `test.luau`'s
+--- Phase 4 asserts the run count, so either regression fails there rather than going
+--- unnoticed.
 local CARD_GAP = 6
 local PANEL_GAP = 10
 

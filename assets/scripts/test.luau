@@ -47,34 +47,21 @@ local HEIGHT = 256
 
 local scope = Scope()
 
-local root = binder.node.create(scope)
-local hostNode = binder.node.create(root)
-
 --- Called ONCE and kept. `app.headless(config)` is a class FACTORY — it returns a fresh
 --- class per call — so calling it again inside the `binder.use` would name a different
 --- class, build a second context on this node and trip the provider's one-per-node
 --- assert.
 local Headless = appmod.headless({ width = WIDTH, height = HEIGHT })
 
-binder.use(scope, hostNode, Headless)
+--- `hostNode` is the root, as `windowNode` is in `main.luau`: the provider binds
+--- `Target` and `Frame` on its own node, and everything on or under it draws there.
+local hostNode = binder.node.create(scope)
+local host = binder.use(scope, hostNode, Headless)
 
---- `get` rather than `use`, for the reason `main.luau` states at the same place: the
---- provider bound both of these on its own node, and asking with `use` would construct
---- a second, seedless `Target` and raise.
-local target = binder.get(hostNode, appmod.Target)
-local frame = binder.get(hostNode, appmod.Frame)
-
-assert(
-	target ~= nil and frame ~= nil,
-	"app.headless binds Target and Frame on its own node"
-)
-
+local target = host.target
+local frame = host.frame
 local gfx = target.gfx
 
---- EVERYTHING SITS UNDER `hostNode`, exactly as everything in the demo sits under its
---- `windowNode`. `Scene3D` and `Screen` find their `Target` and `Frame` with
---- `binder.observeAncestor`, which searches STRICTLY ABOVE itself — so a sibling of
---- `hostNode` renders nothing, raises nothing, and reads as a blank frame.
 local sceneNode = binder.node.create(hostNode)
 local playerNode = binder.node.create(sceneNode)
 
@@ -273,11 +260,12 @@ print(`sub load: {fanLoad} W, seen by main as {reactive.peek(main.load)} W`)
 
 -- ── Phase 4: the panel's text runs still collapse ────────────────────────────────
 --
--- `ui/Panel.luau`'s CARD_GAP and PANEL_GAP are load-bearing: the render walk merges a
--- text run with the quads after it only when those quads are STRICTLY disjoint from the
--- text, so a gap of 0 silently costs about fourteen render passes per frame with no
--- visual change anyone would notice. `render.runsMerged` makes that enforceable, so it
--- is asserted here rather than left as a comment asking to be obeyed.
+-- `ui/Panel.luau`'s CARD_GAP is load-bearing: the render walk merges a text run with the
+-- quads after it only when those quads can paint no pixel the text can, judged on whole
+-- pixels. A label's bottom edge is fractional, so with no gap the next quad shares its
+-- last pixel row, and the panel silently costs four more render runs per frame with no
+-- visual change anyone would notice. `render.debug.runsMerged` makes that enforceable,
+-- so it is asserted here rather than left as a comment asking to be obeyed.
 
 --- BUILT HERE rather than at the top, and the placement is load-bearing. `Screen`
 --- registers its render stage the moment it is constructed, so a UI layer created
@@ -287,15 +275,9 @@ print(`sub load: {fanLoad} W, seen by main as {reactive.peek(main.load)} W`)
 local uiNode = binder.node.create(hostNode)
 local panelNode = binder.node.create(uiNode)
 
---- ON `uiNode`, for the reason `main.luau` states at length at the same place, and it
---- holds identically here because `app.headless` binds `Target` and `Frame` on
---- `hostNode` ITSELF just as `app.Window` does. `binder.observeAncestor` searches
---- STRICTLY ABOVE its own node, so a `Fonts` on `hostNode` would resolve neither — and
---- BOTH failures are silent: `drawText` early-returns with no `Target`, and with no
---- `Frame` above it the class returns before it can report, so `frame.orphans` stays
---- zero too. One node down satisfies both ends: `uiNode` is a child of `hostNode` for
---- the search upward, and an ancestor of every node the panel puts text on.
-local fonts = binder.use(scope, uiNode, uitext.Fonts)
+--- On `hostNode`, beside the `Target` it renders for, as `main.luau` puts its own on
+--- `windowNode`.
+local fonts = binder.use(scope, hostNode, uitext.Fonts)
 
 --- No `getEvents`. Nil means this Screen receives no pointer input, which is the honest
 --- answer headlessly: there is no window, so `app.Window`'s input pump never runs and
@@ -320,11 +302,11 @@ panel.showFacility(facility)
 
 --- Read as a DELTA. `runsMerged` is cumulative across every renderer in the VM, so an
 --- absolute value would pass for reasons having nothing to do with this frame.
-local before = render.runsMerged()
+local before = render.debug.runsMerged()
 
 stepFrame()
 
-local merged = render.runsMerged() - before
+local merged = render.debug.runsMerged() - before
 
 --- `Screen` exposes the run COUNT rather than the frame: the `Frame` a walk returns is
 --- invalidated by the next one, because the renderer's batch pool hands out the same
@@ -335,8 +317,9 @@ print(`panel runs: {runs}, merges this walk: {merged}`)
 
 --- The RUN COUNT is the assertion, not the merge count, and the difference matters.
 --- `merged > 0` passes as long as ANY merging happens anywhere, so zeroing `CARD_GAP`
---- takes the panel from 2 runs to 4 while `merged` stays at 1. Two gaps feed this, and
---- a weak predicate only needs one of them to hold.
+--- takes the panel from 2 runs to 6 while `merged` still reads 5. Two boundaries feed
+--- this — a card's heading to its bar, and its reset label to the next card — and a
+--- weak predicate only needs one of them to hold.
 ---
 --- Two is the floor for a frame containing both quads and text: one quad run, one text
 --- run. Anything above it means a boundary stopped collapsing.
@@ -352,7 +335,7 @@ local FULLY_COLLAPSED = 2
 assert(
 	runs <= FULLY_COLLAPSED,
 	`the panel's text runs stopped collapsing: {runs} runs, expected {FULLY_COLLAPSED} `
-		.. `(merged={merged}) — did CARD_GAP or PANEL_GAP go to 0?`
+		.. `(merged={merged}) — see CARD_GAP in ui/Panel.luau`
 )
 
 --- Kept alongside, because the two say different things: the count above is what a

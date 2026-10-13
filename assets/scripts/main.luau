@@ -52,8 +52,7 @@
 --- WHAT THIS FILE DOES NOT CONTAIN, because that is the interesting half. There is no
 --- window binder, no camera or transform type, no scene walk, no shader and no frame
 --- callback. `@polywog/app`, `@polywog/world/3d` and `@polywog/ui/screen` own all of
---- it; what is left here is the ~25 lines that are about THIS demo rather than about
---- being an engine.
+--- it; what is left here is about THIS demo rather than about being an engine.
 ---
 --- Controls: drag to orbit, scroll to zoom, `E` for the overlay.
 
@@ -65,7 +64,6 @@ local scene3d = require("@polywog/scene3d")
 local reactive = require("@polywog/reactive")
 local binder = require("@polywog/binder")
 local layout = require("@polywog/ui/layout")
-local animation = require("@polywog/animation")
 local appmod = require("@polywog/app")
 local world3d = require("@polywog/world/3d")
 local screenmod = require("@polywog/ui/screen")
@@ -82,24 +80,21 @@ local Overlay = require("./ui/Overlay")
 
 local scope = Scope()
 
---- `root` holds only what is genuinely singular. Everything else is a node because
---- it is a THING, and each consumer receives the nodes it needs rather than
---- reaching for a global.
+--- Everything is a node because it is a THING, and each consumer receives the nodes
+--- it needs rather than reaching for a global.
 ---
---- EVERYTHING SITS UNDER `windowNode`, and that is structural rather than tidy.
---- `app.Window` binds `app.Target` and `app.Frame` on its OWN node, and every
---- participant — `Scene3D`, `Mesh3D`, `Screen` — finds them with
---- `binder.observeAncestor`, which searches STRICTLY ABOVE itself. Make these
---- siblings of `windowNode` instead and nothing errors: the scene reports itself
---- an orphan through `frame.orphans`, the screen never renders, and the window
---- comes up blank.
-local root = binder.node.create(scope)
-local windowNode = binder.node.create(root)
+--- THE WINDOW IS THE ROOT. `app.Window` binds `app.Target` and `app.Frame` on its own
+--- node, and every participant — `Scene3D`, `Mesh3D`, `Screen`, `Fonts` — finds them
+--- on its own node or the nearest one above. So whatever sits on or under
+--- `windowNode` draws into this window.
+local windowNode = binder.node.create(scope)
 local sceneNode = binder.node.create(windowNode)
 --- Under `sceneNode` rather than beside it. `Scene3D.camera` is a REFERENCE rather
 --- than a search, so the parenting is not required — but a camera living outside
 --- the scene it films reads as an accident, and the controllers bind onto this node.
 local playerNode = binder.node.create(sceneNode)
+--- The UI gets a node of its own because `Screen` makes the node it sits on the
+--- layout root, and the scene's nodes have no business in that layout.
 local uiNode = binder.node.create(windowNode)
 
 --- `app.Window`'s construction yields (it waits for the OS window), and a binder
@@ -108,13 +103,10 @@ local uiNode = binder.node.create(windowNode)
 --- a frame stage.
 local window = future.await(binder.use(scope, windowNode, appmod.Window))
 
---- Bound by the provider on its own node, which is why these are `get` rather than
---- `use`: asking for them with `use` would construct a second, seedless `Target`
---- and raise. Both land on `windowNode` — the same node `app.Window` is on — so
---- this is the accessor, not a guess.
-local target = binder.get(windowNode, appmod.Target)
-local frame = binder.get(windowNode, appmod.Frame)
-assert(target ~= nil and frame ~= nil, "app.Window binds Target and Frame on its own node")
+--- The `Target` and `Frame` the window bound on its node: the graphics context and
+--- surface size, and the per-frame stage ordering.
+local target = window.target
+local frame = window.frame
 
 --- The scene's clear colour, owned by `Frame` because only the FIRST render stage
 --- in band order clears and `Frame` is what knows which one that is.
@@ -125,20 +117,10 @@ reactive.set(frame.clearColor, vector.create(0.04, 0.045, 0.06, 1))
 --- and the renderer is rebuilt if the `Target` ever changes, which a hand-built one
 --- here could not be.
 ---
---- ON `uiNode`, NOT on `windowNode`, and only one of the two ways of getting this
---- wrong is still silent. `binder.observeAncestor` searches STRICTLY ABOVE its own
---- node — a provider would otherwise always find itself — and `app.Window` binds
---- `Target` and `Frame` on `windowNode` ITSELF. So a `Fonts` on `windowNode` sees no
---- `Target` at all: `drawText` returns early every frame and every label simply stops
---- appearing, with no error. That is the silent half. With no `Frame` above it either
---- there is nowhere to report to, so it reports to `@polywog/app` instead, and a
---- second's worth of frames later the window raises and says so.
----
---- One node down is what satisfies both ends at once: `uiNode` is a child of
---- `windowNode`, so the search upward reaches `Target` and `Frame`, and it is an
---- ancestor of every node the UI puts text on, so each `Text` searching upward
---- reaches this.
-local fonts = binder.use(scope, uiNode, uitext.Fonts)
+--- On `windowNode`, beside the `Target` it renders for. Every `Text` finds its `Fonts`
+--- on its own node or the nearest one above, so this one serves every label the
+--- window shows.
+local fonts = binder.use(scope, windowNode, uitext.Fonts)
 
 local facility = Facility(scope, sceneNode)
 
@@ -238,8 +220,8 @@ local panelNode = binder.node.create(uiNode)
 local overlayNode = binder.node.create(uiNode)
 
 --- NEITHER TAKES A FONT SYSTEM, and the `fonts` above is here only for `drawText`.
---- `uitext.Text` searches upward for the `Fonts` on `uiNode`, which is an ancestor of
---- both of these nodes, so no font handle has to travel through two files and four
+--- `uitext.Text` searches upward for the `Fonts` on `windowNode`, which is an ancestor
+--- of both of these nodes, so no font handle has to travel through two files and four
 --- functions that never look at it.
 local panel = binder.use(scope, panelNode, Panel)
 panel.showFacility(facility)
@@ -265,7 +247,7 @@ overlay.showInfo()
 local activeOrbit: OrbitController.OrbitController? = nil
 local activeAutoPan: AutoPanController.AutoPanController? = nil
 
-reactive.effect(scope, function(use: reactive.Use, controllerScope: reactive.Scope): reactive.Destructor?
+reactive.effect(scope, function(use: reactive.Use, controllerScope: reactive.Scope)
 	if use(overlay.controller) == "orbit" then
 		local orbit = binder.use(controllerScope, playerNode, OrbitController)
 		activeOrbit = orbit
@@ -277,8 +259,6 @@ reactive.effect(scope, function(use: reactive.Use, controllerScope: reactive.Sco
 		activeAutoPan = autoPan
 		reactive.bind(controllerScope, camera.position, autoPan.position)
 	end
-
-	return nil
 end)
 
 --- `Screen` is the whole UI half of the frame: it owns the layout root, the
@@ -293,11 +273,11 @@ local screen = binder.use(scope, uiNode, screenmod.Screen)
 
 screen.configure({
 	--- `input.getEvents` is ALSO called by the write stage below, and two consumers of
-	--- an input queue reads like a bug. It is not: `getEvents` CLONES the frame's
-	--- event list rather than draining it, so both see the whole frame. What must not
-	--- happen is a second `input.processWindowInput` — `app.Window` pumps the OS queue
-	--- at band -100 and a host that pumps it again eats events before either reader
-	--- gets there.
+	--- an input queue reads like a bug. It is not: reading drains nothing, and every
+	--- call in a frame returns the same frozen table, so both see the whole frame. What
+	--- must not happen is a second `input.processWindowInput` — `app.Window` pumps the
+	--- OS queue at band -100 and a host that pumps it again eats events before either
+	--- reader gets there.
 	getEvents = input.getEvents,
 	--- The whole text seam, in one line. Handing a `render.TextArea` to the text
 	--- renderer's `prepare` needs a cast, and `@polywog/ui/text` is the one place that
@@ -396,8 +376,6 @@ frame.onWrite(scope, function(dt: number, time: number)
 			overlay.sampleFps(frameClock:fps())
 		end
 	end
-
-	animation.advance()
 end, 10)
 
 --- NO `window.handle:onUpdate(...)`. `Window.handle` is public, but a window has

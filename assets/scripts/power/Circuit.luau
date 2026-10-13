@@ -111,14 +111,12 @@ local Circuit = binder.class(function(_node: binder.Node, scope: reactive.Scope)
 	--- un-trips itself when power drops would be a feedback loop through its own
 	--- write, and `reactive`'s cycle detection would not catch it, because a write is
 	--- not a dependency edge.
-	reactive.effect(scope, function(use: reactive.Use): reactive.Destructor?
+	reactive.effect(scope, function(use: reactive.Use)
 		use(resetEpoch)
 
 		if use(load) > use(capacity) then
 			reactive.set(tripped, true)
 		end
-
-		return nil
 	end)
 
 	local powered = reactive.computed(scope, function(use: reactive.Use): boolean
